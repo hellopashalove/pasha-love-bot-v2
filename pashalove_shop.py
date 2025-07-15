@@ -1,16 +1,8 @@
-
 import os
 from dotenv import load_dotenv
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# ...resto de tu código...
-
-
-import os
-from dotenv import load_dotenv
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-
-# Carga variables de entorno
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_SHOP_TOKEN")
 
@@ -65,10 +57,8 @@ PRODUCTOS = {
     ]
 }
 
-# Guardamos idioma del usuario en memoria temporal
-user_lang = {}
-
-def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("Se recibió el comando /start")
     msg = (
         "¡Hola! / Hi!\n"
         "¿En qué idioma quieres chatear?\n"
@@ -76,62 +66,78 @@ def start(update, context):
         "1️⃣ Español\n"
         "2️⃣ English"
     )
-    update.message.reply_text(msg)
+    await update.message.reply_text(msg)
+    context.user_data.clear()  # Limpia datos viejos
 
-def handle_message(update, context):
-    user_id = update.message.from_user.id
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip().lower()
+    lang = context.user_data.get("lang")
+    print(f"[Mensaje recibido] Texto: '{text}' | Datos del usuario: {context.user_data}")
 
-    # Si el usuario no ha elegido idioma
-    if user_id not in user_lang:
+    # Elegir idioma
+    if lang is None:
         if text in ["1", "español", "es"]:
-            user_lang[user_id] = "es"
-            return show_menu(update, "es")
+            context.user_data["lang"] = "es"
+            print("Idioma elegido: Español")
+            await show_menu(update, "es")
+            await update.message.reply_text("Ahora sí, escribe el número del producto que quieras ver. 😍")
+            return
         elif text in ["2", "english", "en"]:
-            user_lang[user_id] = "en"
-            return show_menu(update, "en")
+            context.user_data["lang"] = "en"
+            print("Idioma elegido: English")
+            await show_menu(update, "en")
+            await update.message.reply_text("Now, type the product number you want to see! ✨")
+            return
         else:
-            update.message.reply_text("Elige 1️⃣ para Español o 2️⃣ for English.\nChoose 1️⃣ for Spanish or 2️⃣ for English.")
+            print("El usuario no eligió un idioma válido.")
+            await update.message.reply_text(
+                "Elige 1️⃣ para Español o 2️⃣ for English.\nChoose 1️⃣ for Spanish or 2️⃣ for English."
+            )
             return
 
-    lang = user_lang[user_id]
-    productos = PRODUCTOS[lang]
+    productos = PRODUCTOS[context.user_data["lang"]]
 
-    # Mostrar menú si el usuario escribe "menú" o "menu"
     if text in ["menu", "menú"]:
-        return show_menu(update, lang)
+        print(f"El usuario pidió ver el menú en {lang}")
+        await show_menu(update, context.user_data["lang"])
+        return
 
-    # Si escoge una opción de producto
     try:
         idx = int(text) - 1
+        print(f"Intentando acceder al producto número: {idx+1}")
         if 0 <= idx < len(productos):
             nombre, desc, link = productos[idx]
-            update.message.reply_text(f"{nombre}:\n{desc}\n{link}")
-            update.message.reply_text("¿Quieres ver otro producto? Escribe el número o 'menú' para volver.\nWant to see another product? Type the number or 'menu' to go back.")
+            print(f"El usuario eligió el producto {nombre} en {lang}")
+            await update.message.reply_text(f"{nombre}:\n{desc}\n{link}")
+            await update.message.reply_text(
+                "¿Quieres ver otro producto? Escribe el número o 'menú' para volver.\n"
+                "Want to see another product? Type the number or 'menu' to go back."
+            )
         else:
+            print("Número fuera de rango.")
             raise Exception()
     except:
-        update.message.reply_text(
+        print("Texto no es número válido.")
+        await update.message.reply_text(
             "No entendí tu mensaje. Por favor escribe el número del producto o 'menú' para volver.\n"
             "I didn't understand. Please type the product number or 'menu' to go back."
         )
 
-def show_menu(update, lang):
+async def show_menu(update: Update, lang):
     productos = PRODUCTOS[lang]
-    # Números normales en vez de emojis
     menu = "\n".join([f"{i+1}. {nombre}" for i, (nombre, _, _) in enumerate(productos)])
+    print(f"Mostrando menú en idioma: {lang}")
     if lang == "es":
-        update.message.reply_text("¿Qué te gustaría ver? Elige una colección o producto vibrante:\n" + menu)
+        await update.message.reply_text("¿Qué te gustaría ver? Elige una colección o producto vibrante:\n" + menu)
     else:
-        update.message.reply_text("What would you like to see? Choose a vibrant collection or product:\n" + menu)
+        await update.message.reply_text("What would you like to see? Choose a vibrant collection or product:\n" + menu)
 
 def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    updater.start_polling()
-    updater.idle()
+    print("Bot corriendo en Visual Studio Code...")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling()
 
 if __name__ == '__main__':
     main()
