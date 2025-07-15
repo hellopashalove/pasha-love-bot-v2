@@ -1,3 +1,12 @@
+# redeploy trigger
+
+import os
+from dotenv import load_dotenv
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+
+# ...resto de tu código...
+
+
 import os
 from dotenv import load_dotenv
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
