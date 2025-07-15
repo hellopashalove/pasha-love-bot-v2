@@ -1,6 +1,6 @@
 flask
 python-dotenv
-python-telegram-bot==13.14
+python-telegram-bot==20.7
 openai>=1.0.0
 requests
 beautifulsoup4
